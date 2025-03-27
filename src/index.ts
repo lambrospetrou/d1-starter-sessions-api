@@ -1,4 +1,5 @@
 import { D1Database, D1DatabaseSession } from "@cloudflare/workers-types";
+import { Retries } from "durable-utils";
 
 export type Env = {
 	DB01: D1Database;
@@ -46,32 +47,37 @@ async function handleRequest(request: Request, session: D1DatabaseSession) {
 
 	if (request.method === "GET" && pathname === '/api/orders') {
 		// C. Session read query.
-		const resp = await session.prepare('SELECT * FROM Orders').all();
-		return Response.json(buildResponse(session, resp, tsStart));
+		return await Retries.tryWhile(async () => {
+			const resp = await session.prepare('SELECT * FROM Orders').all();
+			return Response.json(buildResponse(session, resp, tsStart));
+		}, shouldRetry);
 
 	} else if (request.method === "POST" && pathname === '/api/orders') {
 		const order = await request.json<Order>();
 
-		// D. Session write query.
-		// Since this is a write query, D1 will transparently forward the query.
-		await session
-			.prepare('INSERT INTO Orders VALUES (?, ?, ?)')
-			.bind(order.customerId, order.orderId, order.quantity)
-			.run();
+		return await Retries.tryWhile(async () => {
+			// D. Session write query.
+			// Since this is a write query, D1 will transparently forward the query.
+			await session
+				.prepare('INSERT INTO Orders VALUES (?, ?, ?) ON CONFLICT DO NOTHING')
+				.bind(order.customerId, order.orderId, order.quantity)
+				.run();
 
-		// E. Session read-after-write query.
-		// In order for the application to be correct, this SELECT
-		// statement must see the results of the INSERT statement above.
-		const resp = await session
-			.prepare('SELECT * FROM Orders')
-			.all();
+			// E. Session read-after-write query.
+			// In order for the application to be correct, this SELECT
+			// statement must see the results of the INSERT statement above.
+			const resp = await session
+				.prepare('SELECT * FROM Orders')
+				.all();
 
-		return Response.json(buildResponse(session, resp, tsStart));
+			return Response.json(buildResponse(session, resp, tsStart));
+		}, shouldRetry);
 
 	} else if (request.method === "POST" && pathname === '/api/reset') {
-		const resp = await resetTables(session);
-		
-		return Response.json(buildResponse(session, resp, tsStart));
+		return await Retries.tryWhile(async () => {
+			const resp = await resetTables(session);
+			return Response.json(buildResponse(session, resp, tsStart));
+		}, shouldRetry);
 	}
 
 	return new Response('Not found', { status: 404 })
@@ -88,6 +94,17 @@ function buildResponse(session: D1DatabaseSession, res: D1Result, tsStart: numbe
 		// Add the session bookmark inside the response body too.
 		sessionBookmark: session.getBookmark(),
 	};
+}
+
+function shouldRetry(err: unknown, nextAttempt: number) {
+	if (nextAttempt > 3) {
+		return false;
+	}
+	const errMsg = String(err);
+	if (errMsg.includes("Network connection lost") || errMsg.includes("storage caused object to be reset") || errMsg.includes("reset because its code was updated")) {
+		return true;
+	}
+	return false;
 }
 
 /**
