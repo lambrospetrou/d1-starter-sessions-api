@@ -1,4 +1,3 @@
-import { D1Database, D1DatabaseSession } from "@cloudflare/workers-types";
 import { Retries } from "durable-utils";
 
 export type Env = {
