@@ -13,9 +13,9 @@
 		"durable-utils": "^0.3.4"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.7.5",
+		"@cloudflare/vitest-pool-workers": "^0.8.6",
 		"typescript": "^5.5.2",
-		"vitest": "~3.0.7",
+		"vitest": "~3.0.9",
 		"wrangler": "^4.5.0"
 	}
 }

@@ -16,7 +16,7 @@ export default {
 
 		try {
 			// Use this Session for all our Workers' routes.
-			const response = await withTablesInitialized(session, async () => await handleRequest(request, session));
+			const response = await withTablesInitialized(request, session, handleRequest);
 
 			// B. Return the bookmark so we can continue the Session in another request.
 			response.headers.set('x-d1-bookmark', session.getBookmark() ?? "");
@@ -111,13 +111,15 @@ function shouldRetry(err: unknown, nextAttempt: number) {
  * This will check if the error is because our main table is missing, and if it is create the table
  * and rerun the handler.
  */
-async function withTablesInitialized(session: D1DatabaseSession, handler: () => Promise<Response>) {
+async function withTablesInitialized(request: Request, session: D1DatabaseSession, handler: (request: Request, session: D1DatabaseSession) => Promise<Response>) {
+	// We use clones of the body since if we parse it once, and then retry with the
+	// same request, it will fail due to the body stream already being consumed.
 	try {
-		return await handler();
+		return await handler(request.clone(), session);
 	} catch (e) {
 		if (String(e).includes("no such table: Orders: SQLITE_ERROR")) {
 			await initTables(session);
-			return await handler();
+			return await handler(request.clone(), session);
 		}
 		throw e;
 	}
