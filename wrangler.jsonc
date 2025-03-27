@@ -8,10 +8,7 @@
 	"main": "src/index.ts",
 	"compatibility_date": "2025-03-17",
 	"observability": {
-		"enabled": true,
-		"logs": {
-			"invocation_logs": false
-		}
+		"enabled": true
 	},
 	"assets": {
 		"directory": "./public/"

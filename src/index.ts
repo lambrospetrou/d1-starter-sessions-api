@@ -96,11 +96,11 @@ function buildResponse(session: D1DatabaseSession, res: D1Result, tsStart: numbe
 }
 
 function shouldRetry(err: unknown, nextAttempt: number) {
-	if (nextAttempt > 3) {
-		return false;
-	}
 	const errMsg = String(err);
-	if (errMsg.includes("Network connection lost") || errMsg.includes("storage caused object to be reset") || errMsg.includes("reset because its code was updated")) {
+	const isRetryableError = errMsg.includes("Network connection lost") ||
+		errMsg.includes("storage caused object to be reset") ||
+		errMsg.includes("reset because its code was updated");
+	if (nextAttempt <= 5 && isRetryableError) {
 		return true;
 	}
 	return false;
