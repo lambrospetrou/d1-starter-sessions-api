@@ -9,11 +9,9 @@
 		"test": "vitest",
 		"cf-typegen": "wrangler types"
 	},
-	"dependencies": {
-		"durable-utils": "^0.3.4"
-	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.6",
+		"durable-utils": "^0.3.4",
 		"typescript": "^5.5.2",
 		"vitest": "~3.0.9",
 		"wrangler": "^4.5.0"
